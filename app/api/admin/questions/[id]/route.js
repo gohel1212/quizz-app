@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAdmin, unauthorized } from '@/lib/adminAuth';
 
+export const dynamic = 'force-dynamic';
+
 export async function PUT(req, { params }) {
   if (!verifyAdmin(req)) return unauthorized();
   const body = await req.json();
