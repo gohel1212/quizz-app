@@ -33,8 +33,7 @@ body {
 }
 
 .admin-bg {
-  background:
-    linear-gradient(180deg, #000000 0%, #111111 54%, #FFFFFF 54%, #FFFFFF 100%);
+  background: #111111;
 }
 
 .dashboard-bg {
