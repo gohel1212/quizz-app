@@ -1,0 +1,65 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Lead {
+  id          String   @id @default(uuid())
+  name        String
+  college     String
+  mobile      String   @unique
+  email       String   @unique
+  createdAt   DateTime @default(now())
+  attempt     QuizAttempt?
+}
+
+model QuizAttempt {
+  id          String   @id @default(uuid())
+  leadId      String   @unique
+  lead        Lead     @relation(fields: [leadId], references: [id])
+  score       Int
+  totalQ      Int      @default(10)
+  passed      Boolean
+  completedAt DateTime @default(now())
+  answers     String   // stores JSON string: {questionId: selectedAnswer}
+  certificate Certificate?
+}
+
+model Question {
+  id            String   @id @default(uuid())
+  question      String
+  optionA       String
+  optionB       String
+  optionC       String
+  optionD       String
+  correctAnswer String   // "A" | "B" | "C" | "D"
+  order         Int      @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+}
+
+model Certificate {
+  id          String   @id @default(uuid())
+  attemptId   String   @unique
+  attempt     QuizAttempt @relation(fields: [attemptId], references: [id])
+  issuedAt    DateTime @default(now())
+}
+
+model AdminUser {
+  id       String @id @default(uuid())
+  username String @unique
+  password String // bcrypt hashed
+}
+
+model Settings {
+  id           String @id @default("singleton")
+  passScore    Int    @default(7)
+  demoLink     String @default("")
+  quizTitle    String @default("StackCode Career Quiz")
+  updatedAt    DateTime @updatedAt
+}
