@@ -22,7 +22,7 @@ export default function AdminDashboard() {
   const [editCrmLead, setEditCrmLead] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [newNoteMessage, setNewNoteMessage] = useState('');
-  const crmStages = ['Prospect', 'Online Counselling', 'Offline Counselling', 'Hot Leads', 'Cold Leads', 'Enrolled', 'Lost'];
+  const crmStages = ['Prospect', 'Not Received', 'Online Counselling', 'Offline Counselling', 'Hot Leads', 'Cold Leads', 'Enrolled', 'Lost'];
 
   const token = typeof window !== 'undefined' ? sessionStorage.getItem('adminToken') : null;
 
