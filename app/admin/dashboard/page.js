@@ -33,42 +33,57 @@ export default function AdminDashboard() {
 
   const authHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
 
-  const fetchAll = async () => {
-    setLoading(true);
-    const [lr, qr, sr] = await Promise.all([
-      fetch('/api/admin/leads', { headers: authHeaders }),
-      fetch('/api/admin/questions', { headers: authHeaders }),
-      fetch('/api/admin/settings', { headers: authHeaders }),
-    ]);
+  const fetchLeads = async () => {
+    const lr = await fetch('/api/admin/leads', { headers: authHeaders });
     if (lr.status === 401) { router.replace('/admin'); return; }
-    const [ld, qd, sd] = await Promise.all([lr.json(), qr.json(), sr.json()]);
+    const ld = await lr.json();
     setLeads(ld.leads || []);
-    setQuestions(qd.questions || []);
-    setSettings(sd.settings || settings);
     const passed = (ld.leads || []).filter(l => l.attempt?.passed).length;
     const total = (ld.leads || []).filter(l => l.attempt).length;
     setStats({ total, passed, failed: total - passed });
-    setLoading(false);
+  };
+
+  const fetchQuestions = async () => {
+    const qr = await fetch('/api/admin/questions', { headers: authHeaders });
+    if (qr.status === 401) { router.replace('/admin'); return; }
+    const qd = await qr.json();
+    setQuestions(qd.questions || []);
+  };
+
+  const fetchSettings = async () => {
+    const sr = await fetch('/api/admin/settings', { headers: authHeaders });
+    if (sr.status === 401) { router.replace('/admin'); return; }
+    const sd = await sr.json();
+    setSettings(sd.settings || settings);
+  };
+
+  const fetchAll = async (showLoading = true) => {
+    if (showLoading) setLoading(true);
+    await Promise.all([fetchLeads(), fetchQuestions(), fetchSettings()]);
+    if (showLoading) setLoading(false);
   };
 
   const saveQuestion = async () => {
+    const prevForm = qForm;
+    setEditQ(null); // Optimistic UI close
     const method = editQ === 'new' ? 'POST' : 'PUT';
     const url = editQ === 'new' ? '/api/admin/questions' : `/api/admin/questions/${editQ}`;
-    await fetch(url, { method, headers: authHeaders, body: JSON.stringify(qForm) });
-    setEditQ(null);
-    fetchAll();
+    await fetch(url, { method, headers: authHeaders, body: JSON.stringify(prevForm) });
+    fetchQuestions();
   };
 
   const deleteQuestion = async (id) => {
     if (!confirm('Delete this question?')) return;
+    setQuestions(questions.filter(q => q.id !== id)); // Optimistic UI update
     await fetch(`/api/admin/questions/${id}`, { method: 'DELETE', headers: authHeaders });
-    fetchAll();
+    fetchQuestions();
   };
 
   const deleteLead = async (id, name) => {
     if (!confirm(`Delete lead for ${name}? This will also remove their quiz attempt and certificate record.`)) return;
+    setLeads(leads.filter(l => l.id !== id)); // Optimistic UI update
     await fetch(`/api/admin/leads/${id}`, { method: 'DELETE', headers: authHeaders });
-    fetchAll();
+    fetchLeads();
   };
 
   const saveSettings = async () => {
@@ -85,33 +100,34 @@ export default function AdminDashboard() {
       headers: authHeaders,
       body: JSON.stringify({ stage: newStage }),
     });
-    fetchAll();
+    fetchLeads();
   };
 
   const updateLeadCrmDetails = async () => {
     if (!editCrmLead) return;
     const { id, description, lastContact } = editCrmLead;
+    setEditCrmLead(null); // Optimistic UI close
     await fetch(`/api/admin/leads/${id}`, {
       method: 'PUT',
       headers: authHeaders,
       body: JSON.stringify({ description, lastContact }),
     });
-    setEditCrmLead(null);
-    fetchAll();
+    fetchLeads();
   };
 
   const submitNote = async (leadId) => {
     if (!newNoteMessage.trim()) return;
+    const message = newNoteMessage;
+    setNewNoteMessage(''); // Optimistic UI clear
     const res = await fetch(`/api/admin/leads/${leadId}/notes`, {
       method: 'POST',
       headers: authHeaders,
-      body: JSON.stringify({ message: newNoteMessage })
+      body: JSON.stringify({ message })
     });
     if (res.ok) {
       const { note } = await res.json();
-      setEditCrmLead(prev => ({ ...prev, notes: [note, ...(prev.notes || [])] }));
-      setNewNoteMessage('');
-      fetchAll();
+      setEditCrmLead(prev => prev ? { ...prev, notes: [note, ...(prev.notes || [])] } : prev);
+      fetchLeads();
     }
   };
 
