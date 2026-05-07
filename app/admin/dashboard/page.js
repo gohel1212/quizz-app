@@ -202,7 +202,7 @@ export default function AdminDashboard() {
         {/* CRM TAB */}
         {tab === 'CRM' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', height: 'calc(100vh - 180px)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-start', gap: '20px', alignItems: 'center' }}>
               <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '20px', margin: 0 }}>Lead Pipeline CRM</h2>
               <input
                 type="text"
