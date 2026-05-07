@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-const tabs = ['Leads', 'Questions', 'Settings'];
+const tabs = ['CRM', 'Leads', 'Questions', 'Settings'];
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -16,6 +16,11 @@ export default function AdminDashboard() {
   const [qForm, setQForm] = useState({ question: '', optionA: '', optionB: '', optionC: '', optionD: '', correctAnswer: 'A', order: 0 });
   const [filter, setFilter] = useState('all');
   const [saveMsg, setSaveMsg] = useState('');
+
+  // CRM state
+  const [draggedLeadId, setDraggedLeadId] = useState(null);
+  const [editCrmLead, setEditCrmLead] = useState(null);
+  const crmStages = ['Prospect', 'Online Counselling', 'Offline Counselling', 'Hot Leads', 'Cold Leads', 'Enrolled', 'Lost'];
 
   const token = typeof window !== 'undefined' ? sessionStorage.getItem('adminToken') : null;
 
@@ -70,6 +75,29 @@ export default function AdminDashboard() {
     setTimeout(() => setSaveMsg(''), 2500);
   };
 
+  const updateLeadStage = async (leadId, newStage) => {
+    const updated = leads.map(l => l.id === leadId ? { ...l, stage: newStage } : l);
+    setLeads(updated); // Optimistic UI update
+    await fetch(`/api/admin/leads/${leadId}`, {
+      method: 'PUT',
+      headers: authHeaders,
+      body: JSON.stringify({ stage: newStage }),
+    });
+    fetchAll();
+  };
+
+  const updateLeadCrmDetails = async () => {
+    if (!editCrmLead) return;
+    const { id, description, lastContact } = editCrmLead;
+    await fetch(`/api/admin/leads/${id}`, {
+      method: 'PUT',
+      headers: authHeaders,
+      body: JSON.stringify({ description, lastContact }),
+    });
+    setEditCrmLead(null);
+    fetchAll();
+  };
+
   const exportCSV = () => {
     const rows = [['Name', 'College', 'Mobile', 'Email', 'Score', 'Status', 'Date']];
     leads.forEach(l => rows.push([
@@ -118,7 +146,7 @@ export default function AdminDashboard() {
             color: tab === t ? 'var(--brand-orange)' : 'rgba(255,255,255,0.55)',
             fontWeight: tab === t ? '600' : '400', fontSize: '14px', transition: 'all 0.15s',
           }}>
-            {t === 'Leads' ? '👥' : t === 'Questions' ? '❓' : '⚙️'} {t}
+            {t === 'CRM' ? '📊' : t === 'Leads' ? '👥' : t === 'Questions' ? '❓' : '⚙️'} {t}
           </button>
         ))}
         <div style={{ marginTop: 'auto' }}>
@@ -147,6 +175,103 @@ export default function AdminDashboard() {
             </div>
           ))}
         </div>
+
+        {/* CRM TAB */}
+        {tab === 'CRM' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', height: 'calc(100vh - 180px)' }}>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '20px', margin: 0 }}>Lead Pipeline CRM</h2>
+            <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', flex: 1, paddingBottom: '16px' }}>
+              {crmStages.map(stage => (
+                <div
+                  key={stage}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (draggedLeadId) {
+                      updateLeadStage(draggedLeadId, stage);
+                      setDraggedLeadId(null);
+                    }
+                  }}
+                  style={{
+                    background: 'rgba(0,0,0,0.03)',
+                    borderRadius: '16px',
+                    width: '320px',
+                    minWidth: '320px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    border: '1px solid rgba(0,0,0,0.06)',
+                  }}
+                >
+                  <div style={{ padding: '16px', borderBottom: '1px solid rgba(0,0,0,0.06)', fontWeight: '600', fontSize: '15px', color: 'var(--brand-dark)' }}>
+                    {stage} ({leads.filter(l => (l.stage || 'Prospect') === stage).length})
+                  </div>
+                  <div style={{ padding: '16px', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {leads.filter(l => (l.stage || 'Prospect') === stage).map(lead => (
+                      <div
+                        key={lead.id}
+                        draggable
+                        onDragStart={() => setDraggedLeadId(lead.id)}
+                        onDragEnd={() => setDraggedLeadId(null)}
+                        onClick={() => setEditCrmLead({ ...lead, lastContact: lead.lastContact ? lead.lastContact.split('T')[0] : '' })}
+                        style={{
+                          background: 'white',
+                          padding: '16px',
+                          borderRadius: '12px',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                          border: '1px solid rgba(0,0,0,0.05)',
+                          cursor: 'grab',
+                        }}
+                      >
+                        <div style={{ fontWeight: '600', fontSize: '14px', marginBottom: '4px' }}>{lead.name}</div>
+                        <div style={{ fontSize: '12px', color: 'rgba(0,0,0,0.5)', marginBottom: '8px' }}>{lead.mobile}</div>
+                        {lead.college && <div style={{ fontSize: '11px', background: 'rgba(0,0,0,0.04)', padding: '4px 8px', borderRadius: '4px', marginBottom: '8px', display: 'inline-block' }}>{lead.college}</div>}
+                        
+                        {(lead.description || lead.lastContact) && (
+                          <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '8px', marginTop: '4px' }}>
+                            {lead.description && <div style={{ fontSize: '12px', color: 'rgba(0,0,0,0.7)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lead.description}</div>}
+                            {lead.lastContact && <div style={{ fontSize: '11px', color: 'var(--brand-orange)', marginTop: '4px', fontWeight: '500' }}>Last Contact: {new Date(lead.lastContact).toLocaleDateString()}</div>}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Edit CRM Lead Modal */}
+            {editCrmLead && (
+              <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                <div style={{ background: 'white', padding: '32px', borderRadius: '24px', width: '400px', maxWidth: '90%' }}>
+                  <h3 style={{ margin: '0 0 20px 0', fontSize: '18px' }}>Edit Lead Details</h3>
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px' }}>Description / Notes</label>
+                    <textarea
+                      value={editCrmLead.description || ''}
+                      onChange={e => setEditCrmLead({ ...editCrmLead, description: e.target.value })}
+                      rows={4}
+                      style={{ width: '100%', padding: '12px', border: '1.5px solid rgba(0,0,0,0.15)', borderRadius: '10px', fontSize: '14px', resize: 'vertical' }}
+                      placeholder="Add notes about the lead..."
+                    />
+                  </div>
+                  <div style={{ marginBottom: '24px' }}>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px' }}>Last Contact Date</label>
+                    <input
+                      type="date"
+                      value={editCrmLead.lastContact || ''}
+                      onChange={e => setEditCrmLead({ ...editCrmLead, lastContact: e.target.value })}
+                      style={{ width: '100%', padding: '12px', border: '1.5px solid rgba(0,0,0,0.15)', borderRadius: '10px', fontSize: '14px' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <button onClick={updateLeadCrmDetails} style={{ flex: 1, background: 'var(--brand-dark)', color: 'white', padding: '12px', borderRadius: '10px', fontWeight: '600', border: 'none', cursor: 'pointer' }}>Save Changes</button>
+                    <button onClick={() => setEditCrmLead(null)} style={{ background: 'transparent', padding: '12px 20px', borderRadius: '10px', fontWeight: '500', border: '1px solid rgba(0,0,0,0.2)', cursor: 'pointer' }}>Cancel</button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* LEADS TAB */}
         {tab === 'Leads' && (

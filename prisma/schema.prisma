@@ -15,6 +15,9 @@ model Lead {
   college     String
   mobile      String   @unique
   email       String   @unique
+  stage       String   @default("Prospect")
+  description String?
+  lastContact DateTime?
   createdAt   DateTime @default(now())
   attempt     QuizAttempt?
 }
