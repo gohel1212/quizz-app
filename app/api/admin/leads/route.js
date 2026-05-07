@@ -7,7 +7,10 @@ export async function GET(req) {
   if (!verifyAdmin(req)) return unauthorized();
   const leads = await prisma.lead.findMany({
     orderBy: { createdAt: 'desc' },
-    include: { attempt: { select: { score: true, totalQ: true, passed: true, completedAt: true } } },
+    include: {
+      attempt: { select: { score: true, totalQ: true, passed: true, completedAt: true } },
+      notes: { orderBy: { createdAt: 'desc' } },
+    },
   });
   return NextResponse.json({ leads });
 }

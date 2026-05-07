@@ -20,6 +20,16 @@ model Lead {
   lastContact DateTime?
   createdAt   DateTime @default(now())
   attempt     QuizAttempt?
+  notes       LeadNote[]
+}
+
+model LeadNote {
+  id        String   @id @default(uuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id])
+  message   String
+  author    String   @default("Admin")
+  createdAt DateTime @default(now())
 }
 
 model QuizAttempt {

@@ -20,6 +20,8 @@ export default function AdminDashboard() {
   // CRM state
   const [draggedLeadId, setDraggedLeadId] = useState(null);
   const [editCrmLead, setEditCrmLead] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [newNoteMessage, setNewNoteMessage] = useState('');
   const crmStages = ['Prospect', 'Online Counselling', 'Offline Counselling', 'Hot Leads', 'Cold Leads', 'Enrolled', 'Lost'];
 
   const token = typeof window !== 'undefined' ? sessionStorage.getItem('adminToken') : null;
@@ -98,6 +100,21 @@ export default function AdminDashboard() {
     fetchAll();
   };
 
+  const submitNote = async (leadId) => {
+    if (!newNoteMessage.trim()) return;
+    const res = await fetch(`/api/admin/leads/${leadId}/notes`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ message: newNoteMessage })
+    });
+    if (res.ok) {
+      const { note } = await res.json();
+      setEditCrmLead(prev => ({ ...prev, notes: [note, ...(prev.notes || [])] }));
+      setNewNoteMessage('');
+      fetchAll();
+    }
+  };
+
   const exportCSV = () => {
     const rows = [['Name', 'College', 'Mobile', 'Email', 'Score', 'Status', 'Date']];
     leads.forEach(l => rows.push([
@@ -117,6 +134,12 @@ export default function AdminDashboard() {
     if (filter === 'failed') return l.attempt && !l.attempt.passed;
     if (filter === 'attempted') return !!l.attempt;
     return true;
+  });
+
+  const crmFilteredLeads = leads.filter(l => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (l.name?.toLowerCase().includes(q) || l.email?.toLowerCase().includes(q) || l.mobile?.includes(q));
   });
 
   const sidebarStyle = {
@@ -179,9 +202,23 @@ export default function AdminDashboard() {
         {/* CRM TAB */}
         {tab === 'CRM' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', height: 'calc(100vh - 180px)' }}>
-            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '20px', margin: 0 }}>Lead Pipeline CRM</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '20px', margin: 0 }}>Lead Pipeline CRM</h2>
+              <input
+                type="text"
+                placeholder="Search leads by name, email, or mobile..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  padding: '10px 16px', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.1)',
+                  fontSize: '14px', width: '300px', outline: 'none'
+                }}
+              />
+            </div>
             <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', flex: 1, paddingBottom: '16px' }}>
-              {crmStages.map(stage => (
+              {crmStages.map(stage => {
+                const stageLeads = crmFilteredLeads.filter(l => (l.stage || 'Prospect') === stage);
+                return (
                 <div
                   key={stage}
                   onDragOver={(e) => e.preventDefault()}
@@ -203,16 +240,16 @@ export default function AdminDashboard() {
                   }}
                 >
                   <div style={{ padding: '16px', borderBottom: '1px solid rgba(0,0,0,0.06)', fontWeight: '600', fontSize: '15px', color: 'var(--brand-dark)' }}>
-                    {stage} ({leads.filter(l => (l.stage || 'Prospect') === stage).length})
+                    {stage} ({stageLeads.length})
                   </div>
                   <div style={{ padding: '16px', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {leads.filter(l => (l.stage || 'Prospect') === stage).map(lead => (
+                    {stageLeads.map(lead => (
                       <div
                         key={lead.id}
                         draggable
                         onDragStart={() => setDraggedLeadId(lead.id)}
                         onDragEnd={() => setDraggedLeadId(null)}
-                        onClick={() => setEditCrmLead({ ...lead, lastContact: lead.lastContact ? lead.lastContact.split('T')[0] : '' })}
+                        onClick={() => { setEditCrmLead({ ...lead, lastContact: lead.lastContact ? lead.lastContact.split('T')[0] : '' }); setNewNoteMessage(''); }}
                         style={{
                           background: 'white',
                           padding: '16px',
@@ -226,9 +263,10 @@ export default function AdminDashboard() {
                         <div style={{ fontSize: '12px', color: 'rgba(0,0,0,0.5)', marginBottom: '8px' }}>{lead.mobile}</div>
                         {lead.college && <div style={{ fontSize: '11px', background: 'rgba(0,0,0,0.04)', padding: '4px 8px', borderRadius: '4px', marginBottom: '8px', display: 'inline-block' }}>{lead.college}</div>}
                         
-                        {(lead.description || lead.lastContact) && (
+                        {((lead.notes && lead.notes.length > 0) || lead.description || lead.lastContact) && (
                           <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '8px', marginTop: '4px' }}>
-                            {lead.description && <div style={{ fontSize: '12px', color: 'rgba(0,0,0,0.7)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lead.description}</div>}
+                            {lead.notes && lead.notes.length > 0 && <div style={{ fontSize: '11px', color: 'rgba(0,0,0,0.6)', marginBottom: '4px' }}>💬 {lead.notes.length} notes</div>}
+                            {!lead.notes?.length && lead.description && <div style={{ fontSize: '12px', color: 'rgba(0,0,0,0.7)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lead.description}</div>}
                             {lead.lastContact && <div style={{ fontSize: '11px', color: 'var(--brand-orange)', marginTop: '4px', fontWeight: '500' }}>Last Contact: {new Date(lead.lastContact).toLocaleDateString()}</div>}
                           </div>
                         )}
@@ -236,36 +274,81 @@ export default function AdminDashboard() {
                     ))}
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
 
             {/* Edit CRM Lead Modal */}
             {editCrmLead && (
               <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                <div style={{ background: 'white', padding: '32px', borderRadius: '24px', width: '400px', maxWidth: '90%' }}>
-                  <h3 style={{ margin: '0 0 20px 0', fontSize: '18px' }}>Edit Lead Details</h3>
-                  <div style={{ marginBottom: '16px' }}>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px' }}>Description / Notes</label>
-                    <textarea
-                      value={editCrmLead.description || ''}
-                      onChange={e => setEditCrmLead({ ...editCrmLead, description: e.target.value })}
-                      rows={4}
-                      style={{ width: '100%', padding: '12px', border: '1.5px solid rgba(0,0,0,0.15)', borderRadius: '10px', fontSize: '14px', resize: 'vertical' }}
-                      placeholder="Add notes about the lead..."
-                    />
+                <div style={{ background: 'white', padding: '32px', borderRadius: '24px', width: '500px', maxWidth: '90%', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <h3 style={{ margin: 0, fontSize: '18px' }}>{editCrmLead.name}'s Profile</h3>
+                    <button onClick={() => setEditCrmLead(null)} style={{ background: 'transparent', border: 'none', fontSize: '20px', cursor: 'pointer' }}>&times;</button>
                   </div>
-                  <div style={{ marginBottom: '24px' }}>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px' }}>Last Contact Date</label>
-                    <input
-                      type="date"
-                      value={editCrmLead.lastContact || ''}
-                      onChange={e => setEditCrmLead({ ...editCrmLead, lastContact: e.target.value })}
-                      style={{ width: '100%', padding: '12px', border: '1.5px solid rgba(0,0,0,0.15)', borderRadius: '10px', fontSize: '14px' }}
-                    />
+
+                  <div style={{ overflowY: 'auto', flex: 1, paddingRight: '8px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    
+                    {/* Notes History */}
+                    <div>
+                      <h4 style={{ fontSize: '14px', marginBottom: '12px', borderBottom: '1px solid rgba(0,0,0,0.1)', paddingBottom: '8px' }}>Conversation History</h4>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '250px', overflowY: 'auto', background: 'rgba(0,0,0,0.02)', padding: '12px', borderRadius: '12px' }}>
+                        {!editCrmLead.notes || editCrmLead.notes.length === 0 ? (
+                          <p style={{ fontSize: '13px', color: 'rgba(0,0,0,0.4)', textAlign: 'center', margin: 0 }}>No notes yet.</p>
+                        ) : (
+                          editCrmLead.notes.map(note => (
+                            <div key={note.id} style={{ background: 'white', padding: '12px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.06)' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                <strong style={{ fontSize: '13px' }}>{note.author}</strong>
+                                <span style={{ fontSize: '11px', color: 'rgba(0,0,0,0.4)' }}>{new Date(note.createdAt).toLocaleString()}</span>
+                              </div>
+                              <div style={{ fontSize: '13px', color: 'rgba(0,0,0,0.7)', whiteSpace: 'pre-wrap' }}>{note.message}</div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Add Note Form */}
+                    <div>
+                      <textarea
+                        value={newNoteMessage}
+                        onChange={(e) => setNewNoteMessage(e.target.value)}
+                        placeholder="Type a new note here..."
+                        rows={3}
+                        style={{ width: '100%', padding: '12px', border: '1.5px solid rgba(0,0,0,0.15)', borderRadius: '10px', fontSize: '14px', resize: 'vertical', marginBottom: '8px' }}
+                      />
+                      <button onClick={() => submitNote(editCrmLead.id)} style={{ background: 'var(--brand-orange)', color: 'white', padding: '8px 16px', borderRadius: '8px', border: 'none', fontWeight: '600', fontSize: '13px', cursor: 'pointer' }}>
+                        Post Note
+                      </button>
+                    </div>
+
+                    {/* Legacy Fields */}
+                    <div style={{ display: 'flex', gap: '16px' }}>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px' }}>Legacy Description</label>
+                        <textarea
+                          value={editCrmLead.description || ''}
+                          onChange={e => setEditCrmLead({ ...editCrmLead, description: e.target.value })}
+                          rows={2}
+                          style={{ width: '100%', padding: '10px', border: '1.5px solid rgba(0,0,0,0.15)', borderRadius: '10px', fontSize: '13px', resize: 'vertical' }}
+                        />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px' }}>Last Contact Date</label>
+                        <input
+                          type="date"
+                          value={editCrmLead.lastContact || ''}
+                          onChange={e => setEditCrmLead({ ...editCrmLead, lastContact: e.target.value })}
+                          style={{ width: '100%', padding: '10px', border: '1.5px solid rgba(0,0,0,0.15)', borderRadius: '10px', fontSize: '13px' }}
+                        />
+                      </div>
+                    </div>
+
                   </div>
-                  <div style={{ display: 'flex', gap: '12px' }}>
-                    <button onClick={updateLeadCrmDetails} style={{ flex: 1, background: 'var(--brand-dark)', color: 'white', padding: '12px', borderRadius: '10px', fontWeight: '600', border: 'none', cursor: 'pointer' }}>Save Changes</button>
-                    <button onClick={() => setEditCrmLead(null)} style={{ background: 'transparent', padding: '12px 20px', borderRadius: '10px', fontWeight: '500', border: '1px solid rgba(0,0,0,0.2)', cursor: 'pointer' }}>Cancel</button>
+
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '24px', paddingTop: '20px', borderTop: '1px solid rgba(0,0,0,0.1)' }}>
+                    <button onClick={updateLeadCrmDetails} style={{ flex: 1, background: 'var(--brand-dark)', color: 'white', padding: '12px', borderRadius: '10px', fontWeight: '600', border: 'none', cursor: 'pointer' }}>Save Legacy Details</button>
+                    <button onClick={() => setEditCrmLead(null)} style={{ background: 'transparent', padding: '12px 20px', borderRadius: '10px', fontWeight: '500', border: '1px solid rgba(0,0,0,0.2)', cursor: 'pointer' }}>Close</button>
                   </div>
                 </div>
               </div>
