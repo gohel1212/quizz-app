@@ -280,10 +280,27 @@ export default function AdminDashboard() {
                         {lead.college && <div style={{ fontSize: '11px', background: 'rgba(0,0,0,0.04)', padding: '4px 8px', borderRadius: '4px', marginBottom: '8px', display: 'inline-block' }}>{lead.college}</div>}
                         
                         {((lead.notes && lead.notes.length > 0) || lead.description || lead.lastContact) && (
-                          <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '8px', marginTop: '4px' }}>
-                            {lead.notes && lead.notes.length > 0 && <div style={{ fontSize: '11px', color: 'rgba(0,0,0,0.6)', marginBottom: '4px' }}>💬 {lead.notes.length} notes</div>}
-                            {!lead.notes?.length && lead.description && <div style={{ fontSize: '12px', color: 'rgba(0,0,0,0.7)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lead.description}</div>}
-                            {lead.lastContact && <div style={{ fontSize: '11px', color: 'var(--brand-orange)', marginTop: '4px', fontWeight: '500' }}>Last Contact: {new Date(lead.lastContact).toLocaleDateString()}</div>}
+                          <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '8px', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {lead.notes && lead.notes.length > 0 && (
+                              <div style={{ background: 'rgba(0,0,0,0.02)', padding: '6px', borderRadius: '6px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                                  <span style={{ fontSize: '10px', fontWeight: '600', color: 'rgba(0,0,0,0.5)' }}>Last Note ({lead.notes.length} total)</span>
+                                  <span style={{ fontSize: '9px', color: 'rgba(0,0,0,0.4)' }}>{new Date(lead.notes[0].createdAt).toLocaleDateString()}</span>
+                                </div>
+                                <div style={{ fontSize: '11px', color: 'rgba(0,0,0,0.7)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {lead.notes[0].message}
+                                </div>
+                              </div>
+                            )}
+                            {lead.description && (
+                              <div style={{ background: 'rgba(0,0,0,0.02)', padding: '6px', borderRadius: '6px' }}>
+                                <div style={{ fontSize: '10px', fontWeight: '600', color: 'rgba(0,0,0,0.5)', marginBottom: '2px' }}>Legacy Description</div>
+                                <div style={{ fontSize: '11px', color: 'rgba(0,0,0,0.7)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {lead.description}
+                                </div>
+                              </div>
+                            )}
+                            {lead.lastContact && <div style={{ fontSize: '11px', color: 'var(--brand-orange)', fontWeight: '500', marginTop: '2px' }}>Last Contact: {new Date(lead.lastContact).toLocaleDateString()}</div>}
                           </div>
                         )}
                       </div>
